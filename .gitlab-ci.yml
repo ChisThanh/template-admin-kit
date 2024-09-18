@@ -1,0 +1,48 @@
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+
+build-dev:
+  # image: docker:19.03.12
+  image: docker:latest
+  stage: build
+  services:
+    # - docker:19.03.12-dind
+    - docker:dind
+  variables:
+    IMAGE_TAG: $CI_REGISTRY_IMAGE:1.0.0
+    IMAGE_TAG_LATEST: $CI_REGISTRY_IMAGE:latest
+  script:
+    #- docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $IMAGE_TAG -t $IMAGE_TAG_LATEST -f ./.docker/Dockerfile .
+    - docker push $IMAGE_TAG_LATEST
+    - docker push $IMAGE_TAG
+  only:
+    - devops_dev
+# deployContainer:
+#  stage: deploy
+#  before_script:
+#    # optional step if you decide to use a hostname instead of IP address
+#    # - cp -f ./network/etc/hosts /etc/hosts
+#    # Setup SSH
+#    - which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )
+#    - eval $(ssh-agent -s)
+#    - ssh-add <(echo "$SSH_PRIVATE_KEY_PROD")
+#    - mkdir -p ~/.ssh
+#    - chmod 700 ~/.ssh
+#    - ssh-keyscan -p 2018 $VM_IPADDRESS_PROD >> ~/.ssh/known_hosts
+#    - chmod 644 ~/.ssh/known_hosts
+
+#  # - 'command -v ssh-agent >/dev/null || ( apk add --update openssh )'
+#  # - eval $(ssh-agent -s)
+#  # - echo "$SSH_PRIVATE_KEY_PROD" | tr -d '\r' | ssh-add -
+#  # - mkdir -p ~/.ssh
+#  # - chmod 700 ~/.ssh
+#  # - ssh-keyscan $VM_IPADDRESS_PROD >> ~/.ssh/known_hosts
+#  # - chmod 644 ~/.ssh/known_hosts
+#  script:
+#    - ssh -p 2018 $SSH_USER@$VM_IPADDRESS_PROD "hostname && ~/sencar.vn/autodeploy.sh"
+#  artifacts:
+#    paths:
+#      - public
+#  only:
+#    - production

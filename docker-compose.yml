@@ -1,0 +1,104 @@
+services:
+  template-admin-kit:
+    container_name: template-admin-kit
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile_dev
+    image: registry.gitlab.com/poisongass/template-admin-kit:1.0.0
+    ports:
+      - "4050:80"
+      - "5173:5173"
+    environment:
+      CONTAINER_ROLE: app
+    env_file: ./laravel_app/.env
+    volumes:
+      - ./.docker/php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./.docker/php/conf.d/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini
+      - ./laravel_app:/var/www/laravel_app
+      - /var/www/laravel_app/storage
+      - /var/www/laravel_app/bootstrap/cache
+    networks:
+      - my-duplicati-net
+    depends_on:
+      - mysql-db
+
+  mysql-db:
+    image: "mariadb:11.1"
+    environment:
+      MYSQL_ROOT_PASSWORD: secret_pass
+      MYSQL_ROOT_HOST: "%"
+      MYSQL_DATABASE: database
+      MYSQL_USER: root
+      MYSQL_PASSWORD: secret_pass
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    volumes:
+      - db:/var/lib/mysql
+    networks:
+      - my-duplicati-net
+
+  phpmyadmin:
+    networks:
+      - my-duplicati-net
+    image: phpmyadmin/phpmyadmin:latest
+    platform: "linux/amd64"
+    environment:
+      PMA_HOST: mysql-db
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 200M
+    ports:
+      - "8081:80"
+
+  redis:
+    image: "redis:alpine"
+    # ports:
+    #   - '${FORWARD_REDIS_PORT:-6379}:6379'
+    command: redis-server --requirepass someredispassword
+    networks:
+      - my-duplicati-net
+
+  meilisearch:
+    image: "getmeili/meilisearch:latest"
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_NO_ANALYTICS: "${MEILISEARCH_NO_ANALYTICS:-false}"
+      MEILI_MASTER_KEY: masterKey
+    volumes:
+      - meilisearch:/meili_data
+    networks:
+      - my-duplicati-net
+
+  app-queue-scout:
+    container_name: app-queue-scout
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile_dev
+    #    ports:
+    #      - "4040:80"
+    environment:
+      CONTAINER_ROLE: queue
+    depends_on:
+      - template-admin-kit
+      - mysql-db
+    env_file: ./laravel_app/.env
+    volumes:
+      - ./laravel_app:/var/www/laravel_app
+      - /var/www/laravel_app/storage
+      - /var/www/laravel_app/bootstrap/cache
+      - /var/www/laravel_app/vendor
+    networks:
+      - my-duplicati-net
+    restart: always
+
+networks:
+  my-duplicati-net:
+    external: true
+    name: custom_network
+
+volumes:
+  db:
+  meilisearch:
+# php artisan scout:import "App\Models\User"
+# php artisan scout:flush "App\Models\User"
+# php artisan queue:listen
+
